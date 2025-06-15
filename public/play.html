@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouTube Lyrics and Karaoke Search</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    #karaokePlayerWrapper {
+      display: none;
+      margin-top: 20px;
+    }
+
+    #karaokeControls {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+  </style>
+</head>
+ <body class="w-[100vw] h-[100vh] p-4 bg-gradient-to-br from-purple-600 via-pink-600 to-purple-800 text-white border-0 shadow-2xl overflow-hidden">
+   <div class="flex gap-4">
+      <h2>Lyrics Videos</h2>
+      <ul id="lyricsList" class="grid grid-cols-3 gap-4"></ul>
+
+      <h2>Karaoke Videos</h2>
+      <ul id="karaokeList" class="grid grid-cols-3 gap-4"></ul>
+    </div>
+  
+  <h2>Lyrics</h2>
+  <div id="lyrics"><p>Select a lyrics video to see the lyrics here.</p></div>
+
+  <h2>Karaoke Player</h2>
+  <div id="karaokePlayerWrapper">
+    <div id="karaokePlayer"></div>
+    <div id="karaokeControls">
+      <button onclick="playKaraoke()">▶️ Play</button>
+      <button onclick="pauseKaraoke()">⏸️ Pause</button>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'AIzaSyAG30420Ygj9RY_CdjFrLEiFwfGWrxvvWs'; // Replace with your YouTube API key
+    const SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search';
+    const VIDEO_DETAILS_URL = 'https://www.googleapis.com/youtube/v3/videos';
+    let player;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const query = urlParams.get('id') || '';
+
+    async function fetchVideos(searchQuery, listId) {
+      const resultsList = document.getElementById(listId);
+      resultsList.innerHTML = '';
+
+      if (!searchQuery) {
+        resultsList.innerHTML = '<li>No query provided</li>';
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${SEARCH_URL}?part=snippet&maxResults=6&q=${encodeURIComponent(searchQuery)}&type=video&videoCategoryId=10&key=${API_KEY}`
+        );
+        const data = await response.json();
+
+        if (data.items && data.items.length > 0) {
+          data.items.forEach(item => {
+            const title = item.snippet.title;
+            const thumbnail = item.snippet.thumbnails.medium.url;
+            const videoId = item.id.videoId;
+
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+              <a href="#" data-id="${videoId}">
+                <div class="card bg-base-100 w-96 shadow-sm p-4">
+                  <figure>
+                    <img
+                      src="${thumbnail}"
+                      alt="${title}"
+                      class="rounded"
+                    />
+                  </figure>
+                  <div class="card-body">
+                    <h2 class="card-title">${title}</h2>
+                  </div>
+                </div>
+              </a>
+            `;
+
+            const link = listItem.querySelector('a');
+
+            if (listId === 'lyricsList') {
+              link.addEventListener('click', (e) => {
+                e.preventDefault();
+                fetchLyrics(videoId);
+              });
+            } else if (listId === 'karaokeList') {
+              link.addEventListener('click', (e) => {
+                e.preventDefault();
+                loadKaraokePlayer(videoId);
+              });
+            }
+
+            resultsList.appendChild(listItem);
+          });
+        } else {
+          resultsList.innerHTML = '<li>No results found</li>';
+        }
+      } catch (error) {
+        console.error('Error fetching YouTube data:', error);
+        resultsList.innerHTML = '<li>Error loading results</li>';
+      }
+    }
+
+    async function fetchLyrics(videoId) {
+      try {
+        const response = await fetch(
+          `${VIDEO_DETAILS_URL}?part=snippet&id=${videoId}&key=${API_KEY}`
+        );
+        const data = await response.json();
+        const description = data.items[0]?.snippet?.description || '';
+        const lyrics = extractLyrics(description);
+
+        const lyricsContainer = document.getElementById('lyrics');
+        if (lyrics) {
+          lyricsContainer.innerHTML = `<p>${lyrics.replace(/\n/g, '<br>')}</p>`;
+        } else {
+          lyricsContainer.innerHTML = '<p>Lyrics not found</p>';
+        }
+      } catch (error) {
+        console.error('Error fetching video details:', error);
+        document.getElementById('lyrics').innerHTML = '<p>Error loading lyrics</p>';
+      }
+    }
+
+    function extractLyrics(description) {
+      if (!description) return null;
+
+      const patterns = [
+        /(?:^|\n)(?:song\s+)?lyrics\s*[:-]\s*/i,
+        /(?:^|\n)(?:LYRICS|Lyrics)\s*[:-]?\s*/i,
+      ];
+
+      let matchIndex = -1;
+      let matchPattern = null;
+
+      for (const pattern of patterns) {
+        const match = description.match(pattern);
+        if (match) {
+          matchIndex = description.indexOf(match[0]);
+          matchPattern = match[0];
+          break;
+        }
+      }
+
+      if (matchIndex === -1) return null;
+
+      let lyrics = description.substring(matchIndex + matchPattern.length).trim();
+      const lines = lyrics.split('\n');
+      const cleanLines = [];
+
+      for (let line of lines) {
+        const trimmed = line.trim();
+
+        if (
+          trimmed.match(/^#/) ||
+          trimmed.match(/@|\bmailto:|\bhttps?:\/\//i) ||
+          trimmed.match(/^\.{3,}$/) ||
+          trimmed.toLowerCase().includes("inquiry") ||
+          trimmed.toLowerCase().includes("business")
+        ) {
+          break;
+        }
+
+        cleanLines.push(trimmed);
+      }
+
+      const finalLyrics = cleanLines.join('\n').trim();
+      return finalLyrics || null;
+    }
+
+    function loadKaraokePlayer(videoId) {
+      document.getElementById('karaokePlayerWrapper').style.display = 'block';
+
+      if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.body.appendChild(tag);
+
+        window.onYouTubeIframeAPIReady = () => {
+          createYTPlayer(videoId);
+        };
+      } else {
+        createYTPlayer(videoId);
+      }
+    }
+
+    function createYTPlayer(videoId) {
+      if (player) {
+        player.loadVideoById(videoId);
+        return;
+      }
+
+      player = new YT.Player('karaokePlayer', {
+        height: '0',
+        width: '0',
+        videoId: videoId,
+        playerVars: {
+          autoplay: 1,
+        },
+        events: {
+          onReady: (event) => {
+            event.target.playVideo();
+          }
+        }
+      });
+    }
+
+    function playKaraoke() {
+      if (player) player.playVideo();
+    }
+
+    function pauseKaraoke() {
+      if (player) player.pauseVideo();
+    }
+
+    // Run searches
+    if (query) {
+      fetchVideos(query + ' lyrics', 'lyricsList');
+      fetchVideos(query + ' karaoke', 'karaokeList');
+    } else {
+      document.getElementById('lyricsList').innerHTML = '<li>No query provided</li>';
+      document.getElementById('karaokeList').innerHTML = '<li>No query provided</li>';
+    }
+  </script>
+</body>
+</html>
+
