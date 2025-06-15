@@ -92,7 +92,7 @@
       return urlParams.get(param);
     }
 
-    const query = getQueryParam("id") || "Shaky";
+    const query = getQueryParam("query");
 
     function fetchYouTubeResults(searchQuery, maxResults = 4) {
       const endpoint = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&part=snippet&type=video&videoCategoryId=10&maxResults=${maxResults}&q=${encodeURIComponent(searchQuery)}`;
