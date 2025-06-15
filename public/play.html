@@ -11,20 +11,24 @@
       display: none;
       margin-top: 20px;
     }
+
     #karaokeControls {
       margin-top: 10px;
       display: flex;
       gap: 10px;
     }
+
     .custom-gradient {
       background: linear-gradient(to right, rgb(98, 0, 234), rgb(236, 64, 122), rgb(98, 0, 234));
       background-size: 200%;
       animation: bg-pan 10s linear infinite;
     }
+
     @keyframes bg-pan {
       0% { background-position: 0% center; }
       100% { background-position: -200% center; }
     }
+
     .lyrics-container {
       height: 300px;
       overflow: hidden;
@@ -32,16 +36,26 @@
       font-size: 1.5rem;
       line-height: 2.2rem;
     }
+
     .lyrics-line {
       transition: color 0.3s ease;
     }
-    .past-line { color: #aaa; }
-    .current-line { color: #fff; font-weight: bold; }
-    .future-line { color: #ccc; }
+
+    .past-line {
+      color: #aaa;
+    }
+
+    .current-line {
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .future-line {
+      color: #ccc;
+    }
   </style>
 </head>
 <body class="w-[100vw] h-[100vh] p-4 custom-gradient text-white border-0 shadow-2xl overflow-hidden">
-
   <div id="vid-container" class="flex justify-center items-center">
     <div class="flex gap-4">
       <div id="lyrics" class="m-4 p-4 border-2 border-solid border-white/40 rounded-lg flex flex-col justify-center items-center gap-4">
@@ -56,19 +70,20 @@
     </div>
   </div>
 
-  <div class="flex justify-center items-center">
-    <h2 class="text-xl font-bold mt-6">Karaoke Player</h2>
-    <div class="flex flex-col justify-center items-center gap-4" id="karaokePlayerWrapper">
-      <div id="karaokePlayer"></div>
-      <div id="karaokeControls">
-        <button onclick="playKaraoke()">▶️ Play</button>
-        <button onclick="pauseKaraoke()">⏸️ Pause</button>
+    <div class="flex justify-center items-center">
+      <h2 class="text-xl font-bold mt-6">Karaoke Player</h2>
+      <div class="flex flex-col justify-center items-center gap-4" id="karaokePlayerWrapper">
+        <div id="karaokePlayer"></div>
+        <div id="karaokeControls">
+          <button onclick="playKaraoke()">▶️ Play</button>
+          <button onclick="pauseKaraoke()">⏸️ Pause</button>
+        </div>
       </div>
     </div>
-  </div>
+
 
   <script>
-    const apiKey = "YOUR_API_KEY";
+    const apiKey = "AIzaSyCnr19IZagfI69RFduv0QR6ldoaaQe6vXk";
     const VIDEO_DETAILS_URL = "https://www.googleapis.com/youtube/v3/videos";
     let player, lyricsTimer;
 
@@ -77,7 +92,7 @@
       return urlParams.get(param);
     }
 
-    const query = getQueryParam("id");
+    const query = getQueryParam("id") || "Shaky";
 
     function fetchYouTubeResults(searchQuery, maxResults = 4) {
       const endpoint = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&part=snippet&type=video&maxResults=${maxResults}&q=${encodeURIComponent(searchQuery)}`;
@@ -122,87 +137,157 @@
         resultsList.appendChild(listItem);
       });
     }
-    async function fetchCaptions(videoId) {
-      const captionsEndpoint = `https://video.google.com/timedtext?lang=en&v=${videoId}`;
-      const res = await fetch(captionsEndpoint);
-      if (!res.ok) return null;
-      const xmlText = await res.text();
-      if (!xmlText.includes('<transcript>')) return null;
 
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlText, "application/xml");
-      const texts = [...xmlDoc.getElementsByTagName("text")];
+    async function fetchLyrics(videoId, title) {
+      try {
+        const res = await fetch(`${VIDEO_DETAILS_URL}?part=snippet&id=${videoId}&key=${apiKey}`);
+        const data = await res.json();
+        const description = data.items[0]?.snippet?.description || '';
+        const lyrics = extractLyrics(description);
 
-      return texts.map(t => {
-        const start = parseFloat(t.getAttribute("start"));
-        const dur = parseFloat(t.getAttribute("dur") || 2);
-        const line = t.textContent.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-        return { start, dur, line };
-      });
+        const lyricsDiv = document.getElementById("lyrics");
+
+        if (lyrics) {
+          lyricsDiv.innerHTML = `
+            <div class="w-full max-w-3xl text-center">
+              <h2 class="text-3xl font-bold mb-4">${title}</h2>
+              <div id="scrollingLyrics" class="lyrics-container mt-4 mx-auto max-w-2xl text-center"></div>
+              <button id="startSingingBtn" class="p-2 bg-blue-600 btn btn-sm btn-primary mt-4">🎤 Start Singing</button>
+              <button class="p-2 bg-blue-600 btn mt-4 btn-sm btn-outline btn-accent ml-2" onclick="reloadLyrics()">← Back to Lyrics List</button>
+            </div>
+          `;
+          displayScrollingLyrics(lyrics);
+        } else {
+          lyricsDiv.innerHTML = `<div class="text-white">No lyrics found for: ${title}</div>`;
+        }
+      } catch (err) {
+        console.error("Lyrics fetch error:", err);
+        document.getElementById("lyrics").innerHTML = 'Error loading lyrics';
+      }
     }
 
-    async function fetchLyrics(videoId) {
-      const videoDetailsEndpoint = `${VIDEO_DETAILS_URL}?key=${apiKey}&part=snippet&id=${videoId}`;
-      const res = await fetch(videoDetailsEndpoint);
-      const data = await res.json();
+    function displayScrollingLyrics(rawLyrics) {
+      const lines = rawLyrics.split('\n').filter(Boolean);
+      const container = document.getElementById("scrollingLyrics");
+      container.innerHTML = lines.map((line, idx) => `<div class="lyrics-line future-line" id="line-${idx}">${line}</div>`).join("");
 
-      const description = data.items?.[0]?.snippet?.description;
-      if (!description) return [];
+      let current = 0;
+      let started = false;
+      let scrollSpeed = 2000; // initial scroll speed in ms
+      const startButton = document.getElementById("startSingingBtn");
 
-      return extractLyrics(description);
+      // Create speed control buttons
+      const controlsContainer = document.createElement("div");
+      controlsContainer.className = "flex gap-2 justify-center mt-4";
+
+      const speedDownBtn = document.createElement("button");
+      speedDownBtn.className = "btn btn-xs btn-warning";
+      speedDownBtn.textContent = "⏪ Slower";
+
+      const speedUpBtn = document.createElement("button");
+      speedUpBtn.className = "btn btn-xs btn-success";
+      speedUpBtn.textContent = "⏩ Faster";
+
+      controlsContainer.appendChild(speedDownBtn);
+      controlsContainer.appendChild(speedUpBtn);
+      container.parentElement.appendChild(controlsContainer);
+
+      const startScrolling = () => {
+        if (started) return;
+        started = true;
+
+        lyricsTimer = setInterval(scrollLyrics, scrollSpeed);
+      };
+
+      const scrollLyrics = () => {
+        const allLines = document.querySelectorAll(".lyrics-line");
+        allLines.forEach((line, i) => {
+          if (i < current) line.className = "lyrics-line past-line";
+            else if (i === current || i < current + 4) line.className = "lyrics-line current-line";
+              else line.className = "lyrics-line future-line";
+        });
+
+        const scrollAmount = 36;
+        container.scrollTo({
+          top: scrollAmount * current,
+          behavior: 'smooth'
+        });
+
+        if (current < lines.length) current++;
+          else clearInterval(lyricsTimer);
+      };
+
+      const restartScrolling = () => {
+        if (lyricsTimer) clearInterval(lyricsTimer);
+        lyricsTimer = setInterval(scrollLyrics, scrollSpeed);
+      };
+
+      speedUpBtn.onclick = () => {
+        if (scrollSpeed > 500) scrollSpeed -= 250;
+        restartScrolling();
+      };
+
+      speedDownBtn.onclick = () => {
+        scrollSpeed += 250;
+        restartScrolling();
+      };
+
+      startButton.addEventListener("click", startScrolling);
+    }
+
+    function reloadLyrics() {
+      location.reload();
     }
 
     function extractLyrics(description) {
-      const lines = description.split('\n');
-      return lines
-        .map(line => line.trim())
-        .filter(line => line.length > 10 && /^[a-zA-Z0-9,'".?!\s\-]+$/.test(line))
-        .slice(0, 50)
-        .map((line, index) => ({
-          start: index * 3,
-          dur: 3,
-          line
-        }));
+      if (!description) return null;
+
+      const patterns = [
+        /(?:^|\n)(?:song\s+)?lyrics\s*[:-]\s*/i,
+        /(?:^|\n)(?:LYRICS|Lyrics)\s*[:-]?\s*/i,
+      ];
+
+      let matchIndex = -1;
+      let matchPattern = null;
+
+      for (const pattern of patterns) {
+        const match = description.match(pattern);
+        if (match) {
+          matchIndex = description.indexOf(match[0]);
+          matchPattern = match[0];
+          break;
+        }
+      }
+
+      if (matchIndex === -1) return null;
+
+      let lyrics = description.substring(matchIndex + matchPattern.length).trim();
+      const lines = lyrics.split('\n');
+      const cleanLines = [];
+
+      for (let line of lines) {
+        const trimmed = line.trim();
+        if (
+          trimmed.match(/^#/) ||
+          trimmed.match(/@|\bmailto:|\bhttps?:\/\//i) ||
+          trimmed.match(/^\.{3,}$/) ||
+          trimmed.toLowerCase().includes("inquiry") ||
+          trimmed.toLowerCase().includes("business")
+        ) break;
+
+        cleanLines.push(trimmed);
+      }
+
+      return cleanLines.join('\n').trim() || null;
     }
 
-    function displayScrollingLyrics(lyrics) {
-      const lyricsContainer = document.createElement("div");
-      lyricsContainer.className = "lyrics-container text-center mt-4";
-      document.body.appendChild(lyricsContainer);
+    function loadKaraokePlayer(videoId) {
+      const karaokeMusicDiv = document.getElementById('karaoke-music');
+      if (karaokeMusicDiv) karaokeMusicDiv.remove();
 
-      lyricsContainer.innerHTML = lyrics.map((ly, idx) => `
-        <div class="lyrics-line" data-start="${ly.start}" id="line-${idx}">${ly.line}</div>
-      `).join('');
-
-      let currentIndex = 0;
-
-      clearInterval(lyricsTimer);
-      lyricsTimer = setInterval(() => {
-        const time = (player && player.getCurrentTime) ? player.getCurrentTime() : currentIndex * 3;
-
-        lyrics.forEach((lyric, idx) => {
-          const line = document.getElementById(`line-${idx}`);
-          if (!line) return;
-
-          if (time >= lyric.start && time < lyric.start + lyric.dur) {
-            line.className = "lyrics-line current-line";
-            line.scrollIntoView({ behavior: "smooth", block: "center" });
-          } else if (time < lyric.start) {
-            line.className = "lyrics-line future-line";
-          } else {
-            line.className = "lyrics-line past-line";
-          }
-        });
-
-        currentIndex++;
-        if (currentIndex >= lyrics.length) clearInterval(lyricsTimer);
-      }, 1000);
-    }
-    function loadKaraokePlayer(videoId, title) {
       document.getElementById('karaokePlayerWrapper').style.display = 'block';
-      document.getElementById('karaokePlayer').innerHTML = ''; // Clear previous player
 
-      if (typeof YT === 'undefined') {
+      if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         document.body.appendChild(tag);
@@ -210,24 +295,6 @@
       } else {
         createYTPlayer(videoId);
       }
-
-      fetchCaptions(videoId).then(captions => {
-        if (captions && captions.length) {
-          displayScrollingLyrics(captions);
-        } else {
-          fetchLyrics(videoId).then(descriptionLyrics => {
-            if (descriptionLyrics.length) {
-              displayScrollingLyrics(descriptionLyrics);
-            } else {
-              document.body.insertAdjacentHTML("beforeend", `
-                <div class="text-white text-center mt-4">
-                  ❌ No captions or lyrics found for <b>${title}</b>
-                </div>
-              `);
-            }
-          });
-        }
-      });
     }
 
     function createYTPlayer(videoId) {
@@ -248,29 +315,21 @@
     }
 
     function playKaraoke() {
-      if (player && player.playVideo) player.playVideo();
+      if (player) player.playVideo();
     }
 
     function pauseKaraoke() {
-      if (player && player.pauseVideo) player.pauseVideo();
+      if (player) player.pauseVideo();
     }
 
-    // On page load
-    window.onload = () => {
-      const query = getQueryParam("id") || "Shakira Waka Waka";
+    // Initial fetch
+    fetchYouTubeResults(`${query} lyrics`).then(results => {
+      populateList('lyricsList', results, (videoId, title) => fetchLyrics(videoId, title));
+    });
 
-      fetchYouTubeResults(`${query} lyrics`).then(results => {
-        populateList("lyricsList", results, (videoId, title) => {
-          loadKaraokePlayer(videoId, title);
-        });
-      });
-
-      fetchYouTubeResults(`${query} karaoke`).then(results => {
-        populateList("karaokeList", results, (videoId, title) => {
-          loadKaraokePlayer(videoId, title);
-        });
-      });
-    };
+    fetchYouTubeResults(`${query} karaoke`).then(results => {
+      populateList('karaokeList', results, loadKaraokePlayer);
+    });
   </script>
 </body>
 </html>
