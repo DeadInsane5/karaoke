@@ -1,85 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <title>YouTube Song Search</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Song Search</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .custom-gradient {
+      background: linear-gradient(to right, rgb(98, 0, 234), rgb(236, 64, 122), rgb(98, 0, 234));
+      background-size: 200%;
+      animation: bg-pan 10s linear infinite;
+    }
+
+    @keyframes bg-pan {
+      0% {
+        background-position: 0% center;
+      }
+      100% {
+        background-position: -200% center;
+      }
+    }
+  </style>
 </head>
-<body class="w-[100vw] h-[100vh] p-4 bg-gradient-to-br from-purple-600 via-pink-600 to-purple-800 text-white border-0 shadow-2xl overflow-hidden">
-    <div class="flex flex-col gap-4">
-      <div class="flex justify-end items-center gap-2">
-        <h1 class="text-2xl">Search for a Song</h1>
-        <input type="text" id="songInput" placeholder="Enter song name" class="p-2 w-[25vw] rounded-lg">
-      </div>
-      <ul id="resultsList" class="grid grid-cols-3 gap-4"></ul>
+<body class="custom-gradient w-[100vw] h-[100vh] p-8 text-white border-0 shadow-2xl overflow-hidden">
+  <div class="flex flex-col gap-4">
+    <div class="flex justify-end items-center gap-2">
+      <h1 class="text-2xl">Search for a Song</h1>
+      <input type="text" id="songInput" class="p-2 w-[25vw] text-white bg-white/20 rounded-lg">
     </div>
+    <ul id="resultsList" class="grid grid-cols-3 gap-12"></ul>
+  </div>
 
-    <script>
-        const API_KEY = 'AIzaSyAG30420Ygj9RY_CdjFrLEiFwfGWrxvvWs'; // Replace with your YouTube Data API key
-        const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
-        let debounceTimeout;
+  <script>
+    const API_KEY = 'AIzaSyAG30420Ygj9RY_CdjFrLEiFwfGWrxvvWs'; // Replace with your real API key
+    const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
+    let debounceTimeout;
 
-        async function searchSongs(query) {
-            if (!query) {
-                document.getElementById('resultsList').innerHTML = '';
-                return;
-            }
+    async function searchSongs(query) {
+      const resultsList = document.getElementById('resultsList');
+      resultsList.innerHTML = '';
 
-            const resultsList = document.getElementById('resultsList');
-            resultsList.innerHTML = ''; // Clear previous results
+      if (!query) return;
 
-            try {
-                const response = await fetch(
-                    `${YOUTUBE_API_URL}?part=snippet&maxResults=1&q=${encodeURIComponent(query + ' music video')}&type=video&videoCategoryId=10&key=${API_KEY}`
-                );
-                const data = await response.json();
+      try {
+        const response = await fetch(
+          `${YOUTUBE_API_URL}?part=snippet&maxResults=6&q=${encodeURIComponent(query + ' music video')}&type=video&videoCategoryId=10&key=${API_KEY}`
+        );
+        const data = await response.json();
 
-                if (data.items && data.items.length > 0) {
-                    data.items.forEach(item => {
-                        const title = item.snippet.title;
-                        const thumbnail = item.snippet.thumbnails.medium.url;
+        if (data.items && data.items.length > 0) {
+          data.items.forEach(item => {
+            const title = item.snippet.title;
+            const thumbnail = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium.url;
+            const videoId = item.id.videoId;
 
-                        const listItem = document.createElement('li');
-                        listItem.innerHTML = `
-                          <a href="play.html?id=${query}">
-                            <div class="card bg-base-100 w-96 shadow-sm p-2">
-                              <figure>
-                                <img
-                                  src="${thumbnail}"
-                                  alt="${title}"
-                                  class="rounded"
-                                />
-                              </figure>
-                              <div class="card-body">
-                                <h2 class="card-title text-black">${title}</h2>
-                              </div>
-                            </div>
-                          </a>
-                        `;
-                        resultsList.appendChild(listItem);
-                    });
-                } else {
-                    resultsList.innerHTML = '<li>No results found</li>';
-                }
-            } catch (error) {
-                console.error('Error fetching YouTube data:', error);
-                resultsList.innerHTML = '<li>Error loading results</li>';
-            }
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+              <a href="play.html?id=${encodeURIComponent(videoId)}">
+                <div class="card bg-white/20 w-97 h-96 shadow-sm p-8 flex flex-col justify-center items-center">
+                  <figure>
+                    <img src="${thumbnail}" alt="${title}" class="rounded" />
+                  </figure>
+                  <div class="card-body">
+                    <h2 class="card-title text-xl text-white ">${title}</h2>
+                  </div>
+                </div>
+              </a>
+            `;
+            resultsList.appendChild(listItem);
+          });
+        } else {
+          resultsList.innerHTML = '<li>No results found</li>';
         }
+      } catch (error) {
+        console.error('Error fetching YouTube data:', error);
+        resultsList.innerHTML = '<li>Error loading results</li>';
+      }
+    }
 
-        // Debounce function to limit API calls
-        function debounceSearch() {
-            const query = document.getElementById('songInput').value.trim();
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => {
-                searchSongs(query);
-            }, 500);
-        }
-
-        // Add input event listener for real-time search
-        document.getElementById('songInput').addEventListener('input', debounceSearch);
-    </script>
+    document.getElementById('songInput').addEventListener('input', () => {
+      const query = document.getElementById('songInput').value.trim();
+      clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(() => searchSongs(query), 300);
+    });
+  </script>
 </body>
 </html>
+
