@@ -70,10 +70,9 @@
     </div>
   </div>
 
-    <div class="flex justify-center items-center">
+    <div class="flex flex-col justify-center items-center gap-2">
       <h2 class="text-xl font-bold mt-6">Karaoke Player</h2>
       <div class="flex flex-col justify-center items-center gap-4" id="karaokePlayerWrapper">
-        <div id="karaokePlayer"></div>
         <div id="karaokeControls">
           <button onclick="playKaraoke()">▶️ Play</button>
           <button onclick="pauseKaraoke()">⏸️ Pause</button>
@@ -92,7 +91,7 @@
       return urlParams.get(param);
     }
 
-    const query = getQueryParam("id") || "Shaky";
+    const query = getQueryParam("query");
 
     function fetchYouTubeResults(searchQuery, maxResults = 4) {
       const endpoint = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&part=snippet&type=video&videoCategoryId=10&maxResults=${maxResults}&q=${encodeURIComponent(searchQuery)}`;
@@ -169,35 +168,23 @@
     function displayScrollingLyrics(rawLyrics) {
       const lines = rawLyrics.split('\n').filter(Boolean);
       const container = document.getElementById("scrollingLyrics");
-      container.innerHTML = lines.map((line, idx) => `<div class="lyrics-line future-line" id="line-${idx}">${line}</div>`).join("");
+      container.innerHTML = lines.map((line, idx) => 
+        `<div class="lyrics-line future-line" id="line-${idx}">${line}</div>`).join("");
 
       let current = 0;
-      let started = false;
-      let scrollSpeed = 2000; // initial scroll speed in ms
+
+      // Remove speed controls and start button if they exist
       const startButton = document.getElementById("startSingingBtn");
+      if (startButton) startButton.remove();
 
-      // Create speed control buttons
-      const controlsContainer = document.createElement("div");
-      controlsContainer.className = "flex gap-2 justify-center mt-4";
+      const oldControls = document.querySelector("#scrollingLyrics").parentElement.querySelectorAll("button");
+      oldControls.forEach(btn => btn.remove());
 
-      const speedDownBtn = document.createElement("button");
-      speedDownBtn.className = "btn btn-xs btn-warning";
-      speedDownBtn.textContent = "⏪ Slower";
-
-      const speedUpBtn = document.createElement("button");
-      speedUpBtn.className = "btn btn-xs btn-success";
-      speedUpBtn.textContent = "⏩ Faster";
-
-      controlsContainer.appendChild(speedDownBtn);
-      controlsContainer.appendChild(speedUpBtn);
-      container.parentElement.appendChild(controlsContainer);
-
-      const startScrolling = () => {
-        if (started) return;
-        started = true;
-
-        lyricsTimer = setInterval(scrollLyrics, scrollSpeed);
-      };
+      // Display instruction message
+      const instruction = document.createElement("div");
+      instruction.className = "text-center text-lg font-semibold my-4";
+      instruction.textContent = 'Press "Spacebar" to scroll';
+      container.parentElement.insertBefore(instruction, container);
 
       const scrollLyrics = () => {
         const allLines = document.querySelectorAll(".lyrics-line");
@@ -214,25 +201,15 @@
         });
 
         if (current < lines.length) current++;
-          else clearInterval(lyricsTimer);
       };
 
-      const restartScrolling = () => {
-        if (lyricsTimer) clearInterval(lyricsTimer);
-        lyricsTimer = setInterval(scrollLyrics, scrollSpeed);
-      };
-
-      speedUpBtn.onclick = () => {
-        if (scrollSpeed > 500) scrollSpeed -= 250;
-        restartScrolling();
-      };
-
-      speedDownBtn.onclick = () => {
-        scrollSpeed += 250;
-        restartScrolling();
-      };
-
-      startButton.addEventListener("click", startScrolling);
+      // Listen for spacebar press
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space") {
+          e.preventDefault(); // prevent page scroll
+          scrollLyrics();
+        }
+      });
     }
 
     function reloadLyrics() {
@@ -323,11 +300,11 @@
     }
 
     // Initial fetch
-    fetchYouTubeResults(`${query} lyrics`).then(results => {
+    fetchYouTubeResults(query + " lyrics").then(results => {
       populateList('lyricsList', results, (videoId, title) => fetchLyrics(videoId, title));
     });
 
-    fetchYouTubeResults(`${query} karaoke`).then(results => {
+    fetchYouTubeResults(query + " karaoke").then(results => {
       populateList('karaokeList', results, loadKaraokePlayer);
     });
   </script>
