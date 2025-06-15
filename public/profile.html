@@ -3,25 +3,122 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Genre Grid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <title>Document</title>
+    <style>
+      .parent {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        grid-template-rows: repeat(5, 1fr);
+        gap: 8px;
+        width: 80vw;
+        height: 80vh;
+      }
+
+      .custom-gradient {
+        background: linear-gradient(to right, rgb(98, 0, 234), rgb(236, 64, 122), rgb(98, 0, 234));
+        background-size: 200%;
+        animation: bg-pan 10s linear infinite;
+      }
+
+      @keyframes bg-pan {
+        0% {
+          background-position: 0% center;
+        }
+        100% {
+          background-position: -200% center;
+        }
+      }
+
+      /* Grid positions */
+      .div1 {
+        grid-column: span 2 / span 2;
+        grid-row: span 2 / span 2;
+      }
+
+      .div2 {
+        grid-column: span 2 / span 2;
+        grid-row: span 3 / span 3;
+        grid-column-start: 1;
+        grid-row-start: 3;
+      }
+
+      .div3 {
+        grid-row: span 2 / span 2;
+        grid-column-start: 3;
+        grid-row-start: 4;
+      }
+
+      .div4 {
+        grid-column: span 2 / span 2;
+        grid-row: span 2 / span 2;
+        grid-column-start: 3;
+        grid-row-start: 1;
+      }
+
+      .div5 {
+        grid-row: span 2 / span 2;
+        grid-column-start: 5;
+        grid-row-start: 1;
+      }
+
+      .div6 {
+        grid-column: span 3 / span 3;
+        grid-column-start: 3;
+        grid-row-start: 3;
+      }
+
+      .div7 {
+        grid-column: span 2 / span 2;
+        grid-row: span 2 / span 2;
+        grid-column-start: 4;
+        grid-row-start: 4;
+      }
+    </style>
   </head>
-  <body class="w-[100vw] h-[100vh] p-4 bg-gradient-to-br from-purple-600 via-pink-600 to-purple-800 text-white border-0 shadow-2xl overflow-hidden flex justify-center items-center">
-    <div class="flex flex-col gap-1 bg-white/20 p-4 rounded-lg">
-      <form class="flex flex-col gap-2" action="">
-        <label class="text-xl font-bold" for="name">Name</label>
-        <input id="name" class="p-1 text-lg rounded-md text-white" type="text" />
-        
-        <label class="text-xl font-bold" for="genre">Fav Genre</label>
-        <select class="p-1 text-lg rounded-md text-white" id="genre" name="genre">
-          <option value="hip-hop">Hip-Hop</option>
-          <option value="classic">Classic</option>
-          <option value="dance">Dance</option>
-          <option value="pop">Pop</option>
-        </select>
-      </form>
+  <body class="h-screen m-0 overflow-hidden custom-gradient flex flex-col items-center justify-center gap-4 text-white">
+    <div class="flex items-center gap-4">
+      <label class="text-4xl font-bold text-white" for="name">Name:</label>
+      <input
+        id="name"
+        type="text"
+        class="px-4 py-2 h-10 w-64 text-2xl text-white placeholder-white bg-white/20 border border-white rounded-md focus:outline-none focus:ring-2 focus:ring-white"
+      />
+      <label class="text-4xl font-bold text-white" for="genre">& Favourite Genre</label>
     </div>
+
+    <div id="genre-grid" class="parent">
+      <div class="div1 flex items-center justify-center text-2xl font-bold border border-white rounded-xl bg-transparent hover:bg-pink-500 transition cursor-pointer">Hip-Hop</div>
+      <div class="div2 flex items-center justify-center text-2xl font-bold border border-white rounded-xl bg-transparent hover:bg-blue-500 transition cursor-pointer">Classic</div>
+      <div class="div3 flex items-center justify-center text-2xl font-bold border border-white rounded-xl bg-transparent hover:bg-green-500 transition cursor-pointer">Dance</div>
+      <div class="div4 flex items-center justify-center text-2xl font-bold border border-white rounded-xl bg-transparent hover:bg-yellow-500 transition cursor-pointer">Pop</div>
+      <div class="div5 flex items-center justify-center text-2xl font-bold border border-white rounded-xl bg-transparent hover:bg-orange-500 transition cursor-pointer">Rap</div>
+      <div class="div6 flex items-center justify-center text-2xl font-bold border border-white rounded-xl bg-transparent hover:bg-purple-500 transition cursor-pointer">Rock</div>
+      <div class="div7 flex items-center justify-center text-2xl font-bold border border-white rounded-xl bg-transparent hover:bg-red-500 transition cursor-pointer">EDM</div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const grid = document.getElementById("genre-grid");
+        const nameInput = document.getElementById("name");
+
+        grid.querySelectorAll("div").forEach((block) => {
+          block.addEventListener("click", () => {
+            const name = nameInput.value.trim();
+            const genre = block.textContent.trim();
+
+            if (!name) {
+              alert("Please enter your name before selecting a genre.");
+              return;
+            }
+
+            const params = new URLSearchParams({ name, genre });
+            window.location.href = `search.html?${params.toString()}`;
+          });
+        });
+      });
+    </script>
   </body>
 </html>
 
